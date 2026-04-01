@@ -19,6 +19,7 @@ import (
 	"github.com/waywardgeek/gateway/pkg/config"
 	gwNoise "github.com/waywardgeek/gateway/pkg/noise"
 	"github.com/waywardgeek/gateway/pkg/router"
+	"github.com/waywardgeek/gateway/pkg/scheduler"
 	"github.com/waywardgeek/gateway/pkg/store"
 	"github.com/waywardgeek/gateway/pkg/types"
 )
@@ -30,15 +31,21 @@ const (
 	pingInterval   = 30 * time.Second
 )
 
+// ResponseHandler is called when an agent sends a response to a delivered prompt.
+// messageID is the original prompt's message ID, content is the agent's response.
+type ResponseHandler func(agentID, messageID, content string, metadata map[string]string)
+
 // Manager manages all agent WebSocket connections.
 type Manager struct {
-	mu         sync.RWMutex
-	cfg        *config.Config
-	store      *store.Store
-	router     *router.Router
-	gatewayKey noiselib.DHKey
-	conns      map[string]*agentConn // agent ID → active connection
-	upgrader   websocket.Upgrader
+	mu              sync.RWMutex
+	cfg             *config.Config
+	store           *store.Store
+	router          *router.Router
+	scheduler       *scheduler.Scheduler
+	gatewayKey      noiselib.DHKey
+	conns           map[string]*agentConn // agent ID → active connection
+	upgrader        websocket.Upgrader
+	responseHandler ResponseHandler
 }
 
 // agentConn represents a connected agent.
@@ -51,11 +58,12 @@ type agentConn struct {
 }
 
 // NewManager creates a new agent connection manager.
-func NewManager(cfg *config.Config, st *store.Store, r *router.Router, gatewayKey noiselib.DHKey) *Manager {
+func NewManager(cfg *config.Config, st *store.Store, r *router.Router, sched *scheduler.Scheduler, gatewayKey noiselib.DHKey) *Manager {
 	m := &Manager{
 		cfg:        cfg,
 		store:      st,
 		router:     r,
+		scheduler:  sched,
 		gatewayKey: gatewayKey,
 		conns:      make(map[string]*agentConn),
 		upgrader: websocket.Upgrader{
@@ -67,6 +75,13 @@ func NewManager(cfg *config.Config, st *store.Store, r *router.Router, gatewayKe
 	r.SetNotifier(m.notifyAgent)
 
 	return m
+}
+
+// SetResponseHandler sets the function called when an agent responds to a prompt.
+func (m *Manager) SetResponseHandler(fn ResponseHandler) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.responseHandler = fn
 }
 
 // HandleWebSocket handles the /v1/ws endpoint.
@@ -152,7 +167,10 @@ func (m *Manager) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Step 6: Read loop
+	// Step 6: Start ping ticker to keep connection alive
+	go m.pingLoop(ctx, conn)
+
+	// Step 7: Read loop
 	m.readLoop(ctx, conn)
 }
 
@@ -306,13 +324,58 @@ func (m *Manager) readLoop(ctx context.Context, conn *agentConn) {
 			json.Unmarshal(frame.Payload, &resp)
 			log.Printf("[agent-mgr] agent %s: response for %s (%d bytes)",
 				conn.agentID, resp.MessageID, len(resp.Content))
-			// TODO: route response back to source channel
+			m.mu.RLock()
+			handler := m.responseHandler
+			m.mu.RUnlock()
+			if handler != nil {
+				handler(conn.agentID, resp.MessageID, resp.Content, resp.Metadata)
+			}
 
 		case types.FramePing:
 			m.sendFrame(conn, types.FramePong, nil)
 
+		case types.FramePong:
+			// heartbeat response from agent, connection is alive
+
+		case types.FrameScheduleCreate:
+			var payload types.ScheduleCreatePayload
+			json.Unmarshal(frame.Payload, &payload)
+			m.handleScheduleCreate(conn, payload)
+
+		case types.FrameScheduleList:
+			var payload types.ScheduleListPayload
+			json.Unmarshal(frame.Payload, &payload)
+			m.handleScheduleList(conn, payload)
+
+		case types.FrameScheduleUpdate:
+			var payload types.ScheduleUpdatePayload
+			json.Unmarshal(frame.Payload, &payload)
+			m.handleScheduleUpdate(conn, payload)
+
+		case types.FrameScheduleDelete:
+			var payload types.ScheduleDeletePayload
+			json.Unmarshal(frame.Payload, &payload)
+			m.handleScheduleDelete(conn, payload)
+
 		default:
 			log.Printf("[agent-mgr] agent %s: unhandled frame type: %s", conn.agentID, frame.Type)
+		}
+	}
+}
+
+// pingLoop sends periodic Noise-encrypted ping frames to keep the connection alive.
+func (m *Manager) pingLoop(ctx context.Context, conn *agentConn) {
+	ticker := time.NewTicker(pingInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := m.sendFrame(conn, types.FramePing, nil); err != nil {
+				log.Printf("[agent-mgr] agent %s: ping failed: %v", conn.agentID, err)
+				return
+			}
 		}
 	}
 }
@@ -337,6 +400,84 @@ func (m *Manager) notifyAgent(agentID string) {
 	if err := m.deliverPrompt(conn, latest); err != nil {
 		log.Printf("[agent-mgr] agent %s: notify delivery failed: %v", agentID, err)
 	}
+}
+
+// --- Scheduler Skill Handlers ---
+
+// handleScheduleCreate processes a schedule_create frame from an agent.
+func (m *Manager) handleScheduleCreate(conn *agentConn, payload types.ScheduleCreatePayload) {
+	job, err := m.scheduler.CreateJob(conn.agentID, payload.Name, payload.Cron, payload.OnceAt, payload.Prompt, payload.ResponseChannel)
+	if err != nil {
+		m.sendFrame(conn, types.FrameScheduleResult, types.ScheduleResultPayload{
+			RequestID: payload.RequestID,
+			Success:   false,
+			Error:     err.Error(),
+		})
+		return
+	}
+	log.Printf("[agent-mgr] agent %s: created job %s (%s)", conn.agentID, job.ID, job.Name)
+	m.sendFrame(conn, types.FrameScheduleResult, types.ScheduleResultPayload{
+		RequestID: payload.RequestID,
+		Success:   true,
+		JobID:     job.ID,
+	})
+}
+
+// handleScheduleList processes a schedule_list frame from an agent.
+func (m *Manager) handleScheduleList(conn *agentConn, payload types.ScheduleListPayload) {
+	jobs := m.scheduler.ListJobs(conn.agentID)
+	m.sendFrame(conn, types.FrameScheduleResult, types.ScheduleResultPayload{
+		RequestID: payload.RequestID,
+		Success:   true,
+		Jobs:      derefJobs(jobs),
+	})
+}
+
+// handleScheduleUpdate processes a schedule_update frame from an agent.
+func (m *Manager) handleScheduleUpdate(conn *agentConn, payload types.ScheduleUpdatePayload) {
+	job, err := m.scheduler.UpdateJob(conn.agentID, payload.JobID, payload.Name, payload.Cron, payload.OnceAt, payload.Prompt)
+	if err != nil {
+		m.sendFrame(conn, types.FrameScheduleResult, types.ScheduleResultPayload{
+			RequestID: payload.RequestID,
+			Success:   false,
+			Error:     err.Error(),
+		})
+		return
+	}
+	log.Printf("[agent-mgr] agent %s: updated job %s", conn.agentID, job.ID)
+	m.sendFrame(conn, types.FrameScheduleResult, types.ScheduleResultPayload{
+		RequestID: payload.RequestID,
+		Success:   true,
+		JobID:     job.ID,
+	})
+}
+
+// handleScheduleDelete processes a schedule_delete frame from an agent.
+func (m *Manager) handleScheduleDelete(conn *agentConn, payload types.ScheduleDeletePayload) {
+	err := m.scheduler.DeleteJob(conn.agentID, payload.JobID)
+	if err != nil {
+		m.sendFrame(conn, types.FrameScheduleResult, types.ScheduleResultPayload{
+			RequestID: payload.RequestID,
+			Success:   false,
+			Error:     err.Error(),
+		})
+		return
+	}
+	log.Printf("[agent-mgr] agent %s: deleted job %s", conn.agentID, payload.JobID)
+	m.sendFrame(conn, types.FrameScheduleResult, types.ScheduleResultPayload{
+		RequestID: payload.RequestID,
+		Success:   true,
+		JobID:     payload.JobID,
+	})
+}
+
+// derefJobs converts []*types.Job to []types.Job for serialization.
+func derefJobs(jobs []*types.Job) []types.Job {
+	result := make([]types.Job, len(jobs))
+	for i, j := range jobs {
+		result[i] = *j
+	}
+	return result
 }
 
 // parsePublicKey parses "ed25519:base64..." format into raw bytes.

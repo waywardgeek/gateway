@@ -1,0 +1,47 @@
+{
+  "actions": {
+    "actionLineLimit": 12,
+    "actionsHistoryLimit": 250,
+    "thinkingOnlyMode": false
+  },
+  "backgroundTasks": {
+    "maxBackgroundTabs": 8,
+    "autoReuseCompletedTabs": true,
+    "backgroundTaskTimeout": 300
+  },
+  "ai": {
+    "tokenLimitForCompression": 175000,
+    "autoCompressionEnabled": true,
+    "compressionAggressiveness": "balanced",
+    "selectedModel": "claude-opus-4-6",
+    "proxyViaCodeRhapsody": false,
+    "temperature": 0.3,
+    "thinkingTokenLimit": 4096,
+    "reasoningEffort": "high",
+    "verbosity": "",
+    "geminiCachingEnabled": true,
+    "geminiCacheTTL": "3600s",
+    "geminiCacheRefreshTurns": 10,
+    "geminiCacheRefreshTokens": 1000,
+    "geminiIncludeThoughts": true,
+    "geminiMergeHintsEnabled": false,
+    "thinkingThrottleEnabled": false,
+    "thinkingThrottleWPM": 650,
+    "pauseOnScrollUpEnabled": false,
+    "webSearchEnabled": true
+  },
+  "secrets": {
+    "requireUserConfirmationForSecretsAccess": true
+  },
+  "appearance": {
+    "theme": "dark",
+    "fontSize": "medium"
+  },
+  "accessibility": {
+    "ttsEnabled": true,
+    "ttsRate": 2.8,
+    "ttsPitch": 1,
+    "ttsVolume": 1,
+    "ttsVoice": null
+  }
+}

@@ -14,8 +14,8 @@
       "public_key": "x25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
       "reconnect_grace_seconds": 300
     },
-    "family-helper": {
-      "display_name": "Family Helper",
+    "puffin": {
+      "display_name": "Puffin",
       "public_key": "x25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
       "safe_mode": true,
       "local": true,
@@ -29,7 +29,7 @@
       "token_env": "DISCORD_BOT_TOKEN",
       "guild_id": "123456789",
       "listen_channels": ["general", "reminders"],
-      "route_to": "family-helper",
+      "route_to": "puffin",
       "trust": "external",
       "policy": {
         "max_message_length": 2000,
@@ -57,7 +57,7 @@
       },
       "family-morning-briefing": {
         "schedule": "0 7 * * *",
-        "route_to": "family-helper",
+        "route_to": "puffin",
         "prompt": "Good morning! Review the family schedule for today and post a summary.",
         "response_channel": "discord-family"
       }

@@ -135,6 +135,58 @@ func (s *Scheduler) DeleteJob(ownerAgent, jobID string) error {
 	return nil
 }
 
+// UpdateJob modifies fields on an existing dynamic job. Restarts the goroutine
+// if the schedule changed.
+func (s *Scheduler) UpdateJob(ownerAgent, jobID string, name, cron, onceAt, prompt *string) (*types.Job, error) {
+	jobs := s.store.GetAgentJobs(ownerAgent)
+	var job *types.Job
+	for _, j := range jobs {
+		if j.ID == jobID {
+			job = j
+			break
+		}
+	}
+	if job == nil {
+		return nil, fmt.Errorf("job %s not found or not owned by %s", jobID, ownerAgent)
+	}
+
+	scheduleChanged := false
+	if name != nil {
+		job.Name = *name
+	}
+	if prompt != nil {
+		job.Prompt = *prompt
+	}
+	if cron != nil {
+		job.Schedule = types.JobSchedule{Type: "cron", Cron: *cron}
+		scheduleChanged = true
+	}
+	if onceAt != nil {
+		t, err := time.Parse(time.RFC3339, *onceAt)
+		if err != nil {
+			return nil, fmt.Errorf("invalid once_at time: %w", err)
+		}
+		job.Schedule = types.JobSchedule{Type: "once", OnceAt: t}
+		scheduleChanged = true
+	}
+
+	s.store.SaveJob(job)
+
+	// Restart goroutine if schedule changed
+	if scheduleChanged {
+		s.mu.Lock()
+		if cancel, ok := s.cancels[jobID]; ok {
+			cancel()
+			delete(s.cancels, jobID)
+		}
+		s.mu.Unlock()
+		s.startJob(*job)
+	}
+
+	log.Printf("[scheduler] updated job %s (%s) for agent %s", job.ID, job.Name, ownerAgent)
+	return job, nil
+}
+
 // ListJobs returns all dynamic jobs owned by the given agent.
 func (s *Scheduler) ListJobs(ownerAgent string) []*types.Job {
 	return s.store.GetAgentJobs(ownerAgent)

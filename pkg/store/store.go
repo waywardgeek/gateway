@@ -18,6 +18,9 @@ type Store struct {
 	dataDir string
 	agents  map[string]*AgentState
 	jobs    map[string]*types.Job
+	// messageIndex maps message_id → PromptEnvelope for response routing.
+	// Entries are cleared when acked.
+	messageIndex map[string]*types.PromptEnvelope
 }
 
 // AgentState is the persistent state for a connected agent.
@@ -38,9 +41,10 @@ func New(dataDir string) (*Store, error) {
 	}
 
 	s := &Store{
-		dataDir: dataDir,
-		agents:  make(map[string]*AgentState),
-		jobs:    make(map[string]*types.Job),
+		dataDir:      dataDir,
+		agents:       make(map[string]*AgentState),
+		jobs:         make(map[string]*types.Job),
+		messageIndex: make(map[string]*types.PromptEnvelope),
 	}
 
 	if err := s.loadAgents(); err != nil {
@@ -102,6 +106,9 @@ func (s *Store) EnqueuePrompt(agentID string, env types.PromptEnvelope) {
 	state.LastSeq++
 	env.Seq = state.LastSeq
 	state.Queue = append(state.Queue, env)
+	// Index for response routing
+	envCopy := env
+	s.messageIndex[env.MessageID] = &envCopy
 }
 
 // AckPrompt removes all prompts up to and including seq from the queue.
@@ -118,6 +125,14 @@ func (s *Store) AckPrompt(agentID string, seq int64) {
 			return
 		}
 	}
+}
+
+// LookupMessage returns the original prompt envelope for a message ID.
+// Used for response routing — find where the message came from.
+func (s *Store) LookupMessage(messageID string) *types.PromptEnvelope {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.messageIndex[messageID]
 }
 
 // GetPendingPrompts returns all unacked prompts for an agent, optionally from a seq.
