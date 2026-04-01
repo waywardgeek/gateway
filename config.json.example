@@ -1,0 +1,66 @@
+{
+  "gateway": {
+    "listen": ":8092",
+    "data_dir": "./data",
+    "hostname": "gateway.coderhapsody.ai",
+    "tls": {
+      "mode": "cloudflare"
+    }
+  },
+
+  "agents": {
+    "coderhapsody": {
+      "display_name": "CodeRhapsody",
+      "public_key": "x25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "reconnect_grace_seconds": 300
+    },
+    "family-helper": {
+      "display_name": "Family Helper",
+      "public_key": "x25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "safe_mode": true,
+      "local": true,
+      "skills": ["scheduler"]
+    }
+  },
+
+  "channels": {
+    "discord-family": {
+      "type": "discord",
+      "token_env": "DISCORD_BOT_TOKEN",
+      "guild_id": "123456789",
+      "listen_channels": ["general", "reminders"],
+      "route_to": "family-helper",
+      "trust": "external",
+      "policy": {
+        "max_message_length": 2000,
+        "rate_limit": "10/min",
+        "allowed_tools": "safe-only"
+      }
+    },
+    "bill-android": {
+      "type": "noise",
+      "route_to": "coderhapsody",
+      "trust": "owner",
+      "public_key": "x25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "policy": {
+        "allowed_tools": "full"
+      }
+    }
+  },
+
+  "scheduler": {
+    "jobs": {
+      "moltbook-reminder": {
+        "schedule": "0 9 * * *",
+        "route_to": "coderhapsody",
+        "prompt": "Check Moltbook for new comments and notifications. Post if you have something worth saying."
+      },
+      "family-morning-briefing": {
+        "schedule": "0 7 * * *",
+        "route_to": "family-helper",
+        "prompt": "Good morning! Review the family schedule for today and post a summary.",
+        "response_channel": "discord-family"
+      }
+    }
+  }
+}
