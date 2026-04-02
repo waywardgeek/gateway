@@ -406,7 +406,7 @@ func (m *Manager) notifyAgent(agentID string) {
 
 // handleScheduleCreate processes a schedule_create frame from an agent.
 func (m *Manager) handleScheduleCreate(conn *agentConn, payload types.ScheduleCreatePayload) {
-	job, err := m.scheduler.CreateJob(conn.agentID, payload.Name, payload.Cron, payload.OnceAt, payload.Prompt, payload.ResponseChannel)
+	job, err := m.scheduler.CreateJob(conn.agentID, payload.Name, payload.Cron, payload.OnceAt, payload.Prompt, payload.ResponseChannel, payload.Metadata)
 	if err != nil {
 		m.sendFrame(conn, types.FrameScheduleResult, types.ScheduleResultPayload{
 			RequestID: payload.RequestID,

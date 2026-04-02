@@ -52,8 +52,8 @@ func (c *Channel) Start(ctx context.Context) error {
 		return fmt.Errorf("create discord session: %w", err)
 	}
 
-	// Set intents — we need guild messages and message content
-	session.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentMessageContent
+	// Set intents — we need guild messages, message content, and direct messages
+	session.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentMessageContent | discordgo.IntentsDirectMessages
 
 	// Register message handler before connecting
 	session.AddHandler(c.handleMessage)
@@ -128,18 +128,19 @@ func (c *Channel) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 		return
 	}
 
-	// Ignore messages from other guilds
-	if m.GuildID != c.guildID {
-		return
-	}
-
-	// Check if this channel is one we're listening on
-	c.mu.RLock()
-	listening := c.listenChannels[m.ChannelID]
-	c.mu.RUnlock()
-
-	if !listening {
-		return
+	// Accept DMs (no GuildID) or messages from our guild
+	isDM := m.GuildID == ""
+	if !isDM {
+		// Guild message — check it's our guild and a channel we're listening on
+		if m.GuildID != c.guildID {
+			return
+		}
+		c.mu.RLock()
+		listening := c.listenChannels[m.ChannelID]
+		c.mu.RUnlock()
+		if !listening {
+			return
+		}
 	}
 
 	// Ignore empty messages
@@ -148,14 +149,21 @@ func (c *Channel) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 		return
 	}
 
-	log.Printf("[discord] message from %s#%s in channel %s: %.80s",
-		m.Author.Username, m.Author.Discriminator, m.ChannelID, content)
+	if isDM {
+		log.Printf("[discord] DM from %s: %.80s", m.Author.Username, content)
+	} else {
+		log.Printf("[discord] message from %s in channel %s: %.80s",
+			m.Author.Username, m.ChannelID, content)
+	}
 
 	// Route to the gateway
 	metadata := map[string]string{
 		"discord_channel_id": m.ChannelID,
 		"discord_guild_id":   m.GuildID,
 		"discord_message_id": m.ID,
+	}
+	if isDM {
+		metadata["discord_is_dm"] = "true"
 	}
 
 	err := c.router.Deliver(
@@ -174,6 +182,45 @@ func (c *Channel) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 // The discord_channel_id from the original message's metadata tells us where to reply.
 func (c *Channel) DeliverResponse(discordChannelID, content string) error {
 	return c.SendMessage(discordChannelID, content)
+}
+
+// SendDM sends a direct message to a Discord user by their user ID.
+// Creates a DM channel if needed (Discord caches these).
+func (c *Channel) SendDM(userID, content string) error {
+	c.mu.RLock()
+	s := c.session
+	c.mu.RUnlock()
+
+	if s == nil {
+		return fmt.Errorf("discord not connected")
+	}
+
+	if len(content) > 2000 {
+		content = content[:1997] + "..."
+	}
+
+	dmCh, err := s.UserChannelCreate(userID)
+	if err != nil {
+		return fmt.Errorf("create DM channel for user %s: %w", userID, err)
+	}
+
+	_, err = s.ChannelMessageSend(dmCh.ID, content)
+	if err != nil {
+		return fmt.Errorf("send DM to user %s: %w", userID, err)
+	}
+
+	return nil
+}
+
+// FirstChannelID returns the first listening Discord channel ID.
+// Used for scheduler-originated messages that don't have a specific channel.
+func (c *Channel) FirstChannelID() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for id := range c.listenChannels {
+		return id
+	}
+	return ""
 }
 
 // resolveChannels maps configured channel names to Discord channel IDs.

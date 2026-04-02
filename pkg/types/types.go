@@ -120,15 +120,16 @@ type ErrorPayload struct {
 
 // Job represents a scheduled job (static from config or dynamic from agents).
 type Job struct {
-	ID              string       `json:"id"`
-	Name            string       `json:"name"`
-	OwnerAgent      string       `json:"owner_agent"`
-	Source          string       `json:"source"` // "static" or "dynamic"
-	Schedule        JobSchedule  `json:"schedule"`
-	Prompt          string       `json:"prompt"`
-	RouteTo         string       `json:"route_to"`
-	ResponseChannel string       `json:"response_channel,omitempty"`
-	CreatedAt       time.Time    `json:"created_at"`
+	ID              string            `json:"id"`
+	Name            string            `json:"name"`
+	OwnerAgent      string            `json:"owner_agent"`
+	Source          string            `json:"source"` // "static" or "dynamic"
+	Schedule        JobSchedule       `json:"schedule"`
+	Prompt          string            `json:"prompt"`
+	RouteTo         string            `json:"route_to"`
+	ResponseChannel string            `json:"response_channel,omitempty"`
+	Metadata        map[string]string `json:"metadata,omitempty"` // flowed to envelope on fire
+	CreatedAt       time.Time         `json:"created_at"`
 }
 
 // JobSchedule defines when a job fires.
@@ -140,12 +141,13 @@ type JobSchedule struct {
 
 // ScheduleCreatePayload is sent by an agent to create a scheduled job.
 type ScheduleCreatePayload struct {
-	RequestID       string `json:"request_id"`
-	Name            string `json:"name"`
-	Cron            string `json:"cron,omitempty"`
-	OnceAt          string `json:"once_at,omitempty"`
-	Prompt          string `json:"prompt"`
-	ResponseChannel string `json:"response_channel,omitempty"`
+	RequestID       string            `json:"request_id"`
+	Name            string            `json:"name"`
+	Cron            string            `json:"cron,omitempty"`
+	OnceAt          string            `json:"once_at,omitempty"`
+	Prompt          string            `json:"prompt"`
+	ResponseChannel string            `json:"response_channel,omitempty"`
+	Metadata        map[string]string `json:"metadata,omitempty"` // extra metadata flowed to envelope (e.g. discord_dm_user)
 }
 
 // ScheduleListPayload requests a list of this agent's jobs.

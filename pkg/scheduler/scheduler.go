@@ -74,7 +74,7 @@ func (s *Scheduler) Stop() {
 }
 
 // CreateJob creates a new dynamic job and starts it.
-func (s *Scheduler) CreateJob(ownerAgent, name, cron, onceAt, prompt, responseChannel string) (*types.Job, error) {
+func (s *Scheduler) CreateJob(ownerAgent, name, cron, onceAt, prompt, responseChannel string, metadata map[string]string) (*types.Job, error) {
 	job := types.Job{
 		ID:              uuid.Must(uuid.NewV7()).String(),
 		Name:            name,
@@ -83,6 +83,7 @@ func (s *Scheduler) CreateJob(ownerAgent, name, cron, onceAt, prompt, responseCh
 		Prompt:          prompt,
 		RouteTo:         ownerAgent, // dynamic jobs route to the creating agent
 		ResponseChannel: responseChannel,
+		Metadata:        metadata,
 		CreatedAt:       time.Now().UTC(),
 	}
 
@@ -248,7 +249,17 @@ func (s *Scheduler) fireJob(job types.Job) {
 	}
 	if job.ResponseChannel != "" {
 		env.ResponseMode = types.ResponseAsync
-		env.Metadata = map[string]string{"response_channel": job.ResponseChannel}
+		if env.Metadata == nil {
+			env.Metadata = make(map[string]string)
+		}
+		env.Metadata["response_channel"] = job.ResponseChannel
+	}
+	// Merge job metadata into envelope metadata (e.g. discord_dm_user)
+	for k, v := range job.Metadata {
+		if env.Metadata == nil {
+			env.Metadata = make(map[string]string)
+		}
+		env.Metadata[k] = v
 	}
 
 	s.router.DeliverEnvelope(env)
