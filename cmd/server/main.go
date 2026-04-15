@@ -21,6 +21,7 @@ import (
 	"github.com/waywardgeek/gateway/pkg/router"
 	"github.com/waywardgeek/gateway/pkg/scheduler"
 	"github.com/waywardgeek/gateway/pkg/store"
+	"github.com/waywardgeek/gateway/pkg/twilio"
 	"github.com/waywardgeek/gateway/pkg/webhook"
 )
 
@@ -85,6 +86,16 @@ func main() {
 	// Start webhook channels
 	webhookHandler := webhook.NewHandler(cfg, r)
 
+	// Start Twilio channel
+	var twilioChannel *twilio.Channel
+	if cfg.Twilio != nil {
+		twilioChannel = twilio.New(*cfg.Twilio, r)
+		if err := twilioChannel.Start(ctx); err != nil {
+			log.Printf("warning: twilio channel failed to start: %v", err)
+			twilioChannel = nil
+		}
+	}
+
 	// Wire response routing: agent responses → source channel (Discord or webhook)
 	mgr.SetResponseHandler(func(agentID, messageID, content string, metadata map[string]string) {
 		// Try webhook sync first (returns true if a waiter was found)
@@ -146,6 +157,20 @@ func main() {
 			}
 		}
 
+		// Route to Twilio
+		if twilioChannel != nil {
+			callSID := ""
+			if env != nil {
+				callSID = env.Metadata["twilio_call_sid"]
+			}
+			if callSID != "" {
+				if twilioChannel.DeliverResponse(callSID, content) {
+					log.Printf("[response] sent to twilio call %s (%d bytes)", callSID, len(content))
+					return
+				}
+			}
+		}
+
 		log.Printf("[response] no route for response to message %s", messageID)
 	})
 
@@ -160,6 +185,40 @@ func main() {
 
 	// Register webhook endpoints
 	webhookHandler.RegisterRoutes(mux)
+
+	// Register Twilio endpoints
+	if twilioChannel != nil {
+		twilioChannel.RegisterRoutes(mux)
+		
+		// Add /api/calls endpoint for Puffin to trigger calls
+		mux.HandleFunc("/api/calls", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+
+			var req struct {
+				AgentName    string `json:"agent"`
+				TargetPhone  string `json:"phone"`
+				TargetName   string `json:"name"`
+				Announcement string `json:"announcement"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "invalid JSON", http.StatusBadRequest)
+				return
+			}
+
+			callSID, err := twilioChannel.MakeCall(req.AgentName, req.TargetPhone, req.TargetName, req.Announcement)
+			if err != nil {
+				log.Printf("[api] make call error: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"call_sid": callSID})
+		})
+	}
 
 	srv := &http.Server{
 		Addr:    cfg.Gateway.Listen,

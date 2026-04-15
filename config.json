@@ -1,0 +1,57 @@
+{
+  "gateway": {
+    "listen": ":8092",
+    "data_dir": "./data",
+    "hostname": "gateway.coderhapsody.ai",
+    "tls": {
+      "mode": "cloudflare"
+    }
+  },
+
+  "agents": {
+    "puffin": {
+      "display_name": "Puffin",
+      "public_key": "x25519:bWL7qBVxBCh+KvvoUGX/de8YFFby3HEuJ6HeY5TkZxI=",
+      "safe_mode": true,
+      "local": true,
+      "skills": ["scheduler"]
+    }
+  },
+
+  "channels": {
+    "discord-family": {
+      "type": "discord",
+      "token_env": "DISCORD_BOT_TOKEN",
+      "guild_id": "1488937417112162449",
+      "listen_channels": [],
+      "route_to": "puffin",
+      "trust": "external",
+      "policy": {
+        "max_message_length": 2000,
+        "rate_limit": "10/min",
+        "allowed_tools": "safe-only"
+      }
+    }
+  },
+
+  "twilio": {
+    "account_sid_env": "TWILIO_ACCOUNT_SID",
+    "auth_token_env": "TWILIO_AUTH_TOKEN",
+    "phone_number": "+14159681140",
+    "base_url": "https://gateway.havenworld.ai",
+    "default_voice": "Google.en-US-Neural2-F",
+    "default_tts_provider": "Google",
+    "default_transcription_provider": "Google"
+  },
+
+  "scheduler": {
+    "jobs": {
+      "morning-briefing": {
+        "schedule": "0 7 * * *",
+        "route_to": "puffin",
+        "prompt": "Good morning! Review the family schedule for today and post a summary.",
+        "response_channel": "discord-family"
+      }
+    }
+  }
+}

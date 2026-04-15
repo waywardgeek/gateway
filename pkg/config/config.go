@@ -14,6 +14,7 @@ type Config struct {
 	Agents    map[string]AgentConfig   `json:"agents"`
 	Channels  map[string]ChannelConfig `json:"channels"`
 	Scheduler SchedulerConfig          `json:"scheduler"`
+	Twilio    *TwilioConfig            `json:"twilio,omitempty"`
 }
 
 // GatewayConfig holds server-level settings.
@@ -22,6 +23,17 @@ type GatewayConfig struct {
 	DataDir  string    `json:"data_dir"`
 	Hostname string    `json:"hostname"`
 	TLS      TLSConfig `json:"tls"`
+}
+
+// TwilioConfig holds settings for the Twilio channel.
+type TwilioConfig struct {
+	AccountSIDEnv                string `json:"account_sid_env"`
+	AuthTokenEnv                 string `json:"auth_token_env"`
+	PhoneNumber                  string `json:"phone_number"`
+	BaseURL                      string `json:"base_url"`
+	DefaultVoice                 string `json:"default_voice,omitempty"`
+	DefaultTTSProvider           string `json:"default_tts_provider,omitempty"`
+	DefaultTranscriptionProvider string `json:"default_transcription_provider,omitempty"`
 }
 
 // TLSConfig holds TLS settings.
@@ -136,6 +148,22 @@ func (c *Config) Validate() error {
 		}
 		if _, ok := c.Agents[job.RouteTo]; !ok {
 			return fmt.Errorf("scheduler job %q: route_to agent %q not found in agents", name, job.RouteTo)
+		}
+	}
+
+	// Validate Twilio config if present
+	if c.Twilio != nil {
+		if c.Twilio.AccountSIDEnv == "" {
+			return fmt.Errorf("twilio.account_sid_env is required")
+		}
+		if c.Twilio.AuthTokenEnv == "" {
+			return fmt.Errorf("twilio.auth_token_env is required")
+		}
+		if c.Twilio.PhoneNumber == "" {
+			return fmt.Errorf("twilio.phone_number is required")
+		}
+		if c.Twilio.BaseURL == "" {
+			return fmt.Errorf("twilio.base_url is required")
 		}
 	}
 

@@ -1,0 +1,66 @@
+{
+  "agent_id": "puffin",
+  "last_seq": 3,
+  "queue": [
+    {
+      "message_id": "019d4a1c-983b-7789-be1b-72aa8d68e21a",
+      "seq": 1,
+      "agent_id": "puffin",
+      "source": {
+        "type": "discord",
+        "channel_id": "discord-family",
+        "user_id": "500838225892606002",
+        "display_name": ".waywardgeek",
+        "trust": "external"
+      },
+      "timestamp": "2026-04-01T17:34:41.211496Z",
+      "content": "Please create a new icon and I'll switch to that.",
+      "response_mode": "async",
+      "metadata": {
+        "discord_channel_id": "1488937418089431285",
+        "discord_guild_id": "1488937417112162449",
+        "discord_message_id": "1488954771845943366"
+      }
+    },
+    {
+      "message_id": "019d4a1c-e40b-7298-bd6d-34cc7226e44f",
+      "seq": 2,
+      "agent_id": "puffin",
+      "source": {
+        "type": "discord",
+        "channel_id": "discord-family",
+        "user_id": "500838225892606002",
+        "display_name": ".waywardgeek",
+        "trust": "external"
+      },
+      "timestamp": "2026-04-01T17:35:00.619172Z",
+      "content": "Just ask Gemini to create one based on your description.",
+      "response_mode": "async",
+      "metadata": {
+        "discord_channel_id": "1488937418089431285",
+        "discord_guild_id": "1488937417112162449",
+        "discord_message_id": "1488954853685198920"
+      }
+    },
+    {
+      "message_id": "019d4a1e-4a10-7afc-8b11-71afaee6fd73",
+      "seq": 3,
+      "agent_id": "puffin",
+      "source": {
+        "type": "discord",
+        "channel_id": "discord-family",
+        "user_id": "500838225892606002",
+        "display_name": ".waywardgeek",
+        "trust": "external"
+      },
+      "timestamp": "2026-04-01T17:36:32.272723Z",
+      "content": "Hello.",
+      "response_mode": "async",
+      "metadata": {
+        "discord_channel_id": "1488937418089431285",
+        "discord_guild_id": "1488937417112162449",
+        "discord_message_id": "1488955237170675793"
+      }
+    }
+  ]
+}

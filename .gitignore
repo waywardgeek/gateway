@@ -27,6 +27,17 @@ go.work.sum
 # env file
 .env
 
+# Build artifacts
+/gateway
+/gateway-arm64
+
+# Data and logs
+/data/
+cr/logs/
+cr/histories/
+cr/conversations/
+cr/handoffs/
+
 # Editor/IDE
 # .idea/
 # .vscode/

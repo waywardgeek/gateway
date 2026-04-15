@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "chrome": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp", "--auto-connect", "--channel=beta"],
+      "env": {},
+      "systemPrompt": "## 🌐 Browser Interaction (Chrome DevTools)\n- **Workflow**: `list_pages` → `select_page` → `take_snapshot` (to find UIDs) → `click`/`fill`\n- **Snapshots**: Always use the latest `take_snapshot` to find element `uid`s before interacting. Prefer snapshots over screenshots for discovery.\n- **Navigation**: Use `navigate_page`, then `wait_for` or `take_snapshot` to verify load.\n- **Images**: `take_screenshot` automatically attaches the image to the response."
+    },
+    "google-workspace": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-google-workspace"],
+      "env": {},
+      "systemPrompt": "## 📧 Google Workspace (Gmail, Calendar, Drive)\n- Use these tools to search, read, and manage emails, calendar events, and files.\n- **Speed**: This is much faster than using the browser for these tasks.\n- **Auth**: The first time you use a tool, a browser window will open for OAuth. Follow the prompts to 'Allow' access."
+    }
+  }
+}
