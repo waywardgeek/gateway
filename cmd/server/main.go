@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -22,7 +23,10 @@ import (
 	"github.com/waywardgeek/gateway/pkg/scheduler"
 	"github.com/waywardgeek/gateway/pkg/store"
 	"github.com/waywardgeek/gateway/pkg/twilio"
+	"github.com/waywardgeek/gateway/pkg/types"
 	"github.com/waywardgeek/gateway/pkg/webhook"
+
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -86,6 +90,10 @@ func main() {
 	// Start webhook channels
 	webhookHandler := webhook.NewHandler(cfg, r)
 
+	// Pending chat responses (for /api/chat sync endpoint)
+	chatPending := make(map[string]chan string) // messageID → response channel
+	var chatMu sync.Mutex
+
 	// Start Twilio channel
 	var twilioChannel *twilio.Channel
 	if cfg.Twilio != nil {
@@ -98,6 +106,17 @@ func main() {
 
 	// Wire response routing: agent responses → source channel (Discord or webhook)
 	mgr.SetResponseHandler(func(agentID, messageID, content string, metadata map[string]string) {
+		// Check for pending /api/chat response first
+		chatMu.Lock()
+		if ch, ok := chatPending[messageID]; ok {
+			delete(chatPending, messageID)
+			chatMu.Unlock()
+			ch <- content
+			log.Printf("[response] sent chat API response for %s (%d bytes)", messageID, len(content))
+			return
+		}
+		chatMu.Unlock()
+
 		// Try webhook sync first (returns true if a waiter was found)
 		env := st.LookupMessage(messageID)
 		if env != nil {
@@ -181,6 +200,71 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"status":"ok","version":"%s","agents_connected":%d}`,
 			agent.Version, len(mgr.ConnectedAgents()))
+	})
+
+	// Chat API: synchronous request-response to any connected agent
+	mux.HandleFunc("/api/chat", func(w http.ResponseWriter, hr *http.Request) {
+		if hr.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			Agent   string `json:"agent"`
+			Message string `json:"message"`
+			Sender  string `json:"sender"`
+		}
+		if err := json.NewDecoder(hr.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if req.Agent == "" || req.Message == "" {
+			http.Error(w, `"agent" and "message" are required`, http.StatusBadRequest)
+			return
+		}
+		if req.Sender == "" {
+			req.Sender = "api"
+		}
+
+		// Build envelope and deliver directly (no config channel needed)
+		messageID := uuid.Must(uuid.NewV7()).String()
+		env := types.PromptEnvelope{
+			MessageID: messageID,
+			AgentID:   req.Agent,
+			Source: types.PromptSource{
+				Type:        "api",
+				ChannelID:   "api-chat",
+				UserID:      req.Sender,
+				DisplayName: req.Sender,
+				Trust:       types.TrustOwner,
+			},
+			Timestamp:    time.Now().UTC(),
+			Content:      req.Message,
+			ResponseMode: types.ResponseSync,
+		}
+
+		// Register response channel before delivering
+		ch := make(chan string, 1)
+		chatMu.Lock()
+		chatPending[messageID] = ch
+		chatMu.Unlock()
+
+		r.DeliverEnvelope(env)
+
+		// Wait for response with timeout
+		select {
+		case content := <-ch:
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{
+				"response":   content,
+				"message_id": messageID,
+			})
+		case <-time.After(120 * time.Second):
+			chatMu.Lock()
+			delete(chatPending, messageID)
+			chatMu.Unlock()
+			http.Error(w, "timeout waiting for agent response", http.StatusGatewayTimeout)
+		}
 	})
 
 	// Register webhook endpoints
