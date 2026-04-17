@@ -1,0 +1,97 @@
+{
+  "initial_expert_pass": {
+    "cmd/server": true,
+    "pkg/agent": true,
+    "pkg/config": true,
+    "pkg/discord": true,
+    "pkg/noise": true,
+    "pkg/router": true,
+    "pkg/scheduler": true,
+    "pkg/store": true,
+    "pkg/twilio": true,
+    "pkg/types": true,
+    "pkg/webhook": true
+  },
+  "scout_pass": true,
+  "final_expert_pass": {
+    "cmd/server": true,
+    "pkg/agent": true,
+    "pkg/config": true,
+    "pkg/discord": true,
+    "pkg/noise": true,
+    "pkg/router": true,
+    "pkg/scheduler": true,
+    "pkg/store": true,
+    "pkg/twilio": true,
+    "pkg/types": true,
+    "pkg/webhook": true
+  },
+  "file_hashes": {
+    "cmd/server": {
+      "main.go": "7728e9c5aee414de392a785321c365e529736af36f6167e5268c7fd7d5fb7667"
+    },
+    "pkg/agent": {
+      "manager.go": "ea28d5a9bafb641f7acb1aac52f4eeefcfc7998cd4c56a3508519608735e7c91",
+      "manager_test.go": "c09159e580c25901c0d027d597ebb992cd39503dd1bb6cd10f44b574ee9633bb"
+    },
+    "pkg/config": {
+      "config.go": "8a70e78c43ed9eb1b501f09e79cccd6170c4d37e2d430bcd76e8d14798b26dd0",
+      "config_test.go": "59ba23357f6dc3582140d9e4264af8252a7244c5c1e16db4e16da2f7ca327a7a"
+    },
+    "pkg/discord": {
+      "discord.go": "b184692d8dd4dfa52fd80c5d8d94139eecb29933519033b083541ea92d22d75a"
+    },
+    "pkg/noise": {
+      "noise_kk.go": "a8c2de3b027bb0f4263acf96a15c16fad87975c1b848588d4227c2bfcb084d1a",
+      "noise_kk_test.go": "bb68f0a23c9686ab9757f2c41aeb176f2736d064cb6374449fc07b0af503563a"
+    },
+    "pkg/router": {
+      "router.go": "a5f4e00095bda4f5672dbc43295842caf8f758b3187cbb9898ea041bcd1e4993"
+    },
+    "pkg/scheduler": {
+      "scheduler.go": "94edc82f31aa19698e00a5485284258d83ef5ea8f29223e2ecf51d307dfec084"
+    },
+    "pkg/store": {
+      "store.go": "f58f6fdcbd72bb333532bc49d0ae87f99b1431dc4e13f3f14cb067dbdf69f37f",
+      "store_test.go": "9448073237548de2e2f42c2859b095cb9e6d3621b8f2111aa5879b3b5fde0dc6"
+    },
+    "pkg/twilio": {
+      "session.go": "7628b00796a3616e80931580780e2216504d773607f2d15a4addc584a173f517",
+      "twilio.go": "ec852f73e0049dea717c2c226849ead654e11c46c3e568e9737265bacd97adc9",
+      "twiml.go": "362a378b4a3fe5f251d4410cffb3a417c3cf70a268eea5c4b1d1a35d17ee032c",
+      "websocket.go": "3e7077cd7a84ebd4e5af80b79ae3ddd16d6daa45f6bbe86217e2d0581bb4c667"
+    },
+    "pkg/types": {
+      "types.go": "f13fa2344ac6a3f77b93f0f1ed7bb122fd27c79f92365f822d1dcf41f129db22"
+    },
+    "pkg/webhook": {
+      "webhook.go": "ba8307705cdfd0e357f75430198d4a1b78730f1f8ef69bbb0f300d4ca3d6a46f",
+      "webhook_test.go": "bf1e1dd3b8eaff0ba23a9ada48dcf6ee7cbf17080e4ec680d62aa32432dbb52d"
+    }
+  },
+  "processed_files": [
+    "[initial] /Users/bill/projects/gateway/cmd/server/design.md",
+    "[initial] /Users/bill/projects/gateway/pkg/agent/design.md",
+    "[initial] /Users/bill/projects/gateway/pkg/config/design.md",
+    "[initial] /Users/bill/projects/gateway/pkg/discord/design.md",
+    "[initial] /Users/bill/projects/gateway/pkg/noise/design.md",
+    "[initial] /Users/bill/projects/gateway/pkg/router/design.md",
+    "[initial] /Users/bill/projects/gateway/pkg/scheduler/design.md",
+    "[initial] /Users/bill/projects/gateway/pkg/store/design.md",
+    "[initial] /Users/bill/projects/gateway/pkg/twilio/design.md",
+    "[initial] /Users/bill/projects/gateway/pkg/types/design.md",
+    "[initial] /Users/bill/projects/gateway/pkg/webhook/design.md",
+    "[synthesis] project-design.md",
+    "[refined] /Users/bill/projects/gateway/cmd/server/design.md",
+    "[refined] /Users/bill/projects/gateway/pkg/agent/design.md",
+    "[refined] /Users/bill/projects/gateway/pkg/config/design.md",
+    "[refined] /Users/bill/projects/gateway/pkg/discord/design.md",
+    "[refined] /Users/bill/projects/gateway/pkg/noise/design.md",
+    "[refined] /Users/bill/projects/gateway/pkg/router/design.md",
+    "[refined] /Users/bill/projects/gateway/pkg/scheduler/design.md",
+    "[refined] /Users/bill/projects/gateway/pkg/store/design.md",
+    "[refined] /Users/bill/projects/gateway/pkg/twilio/design.md",
+    "[refined] /Users/bill/projects/gateway/pkg/types/design.md",
+    "[refined] /Users/bill/projects/gateway/pkg/webhook/design.md"
+  ]
+}
